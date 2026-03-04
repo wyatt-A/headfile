@@ -1,0 +1,7 @@
+[package]
+name = "headfile"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+indexmap = { version = "2.13.0", features = ["serde"] }
