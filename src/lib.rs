@@ -67,10 +67,10 @@ impl Headfile {
     pub fn fov_x(&mut self, fov_x:f64) {
         self.insert_scalar("fovx",fov_x);
     }
-    pub fn fov_y(&mut self, fov_y:usize) {
+    pub fn fov_y(&mut self, fov_y:f64) {
         self.insert_scalar("fovy",fov_y);
     }
-    pub fn fov_z(&mut self, fov_z:usize) {
+    pub fn fov_z(&mut self, fov_z:f64) {
         self.insert_scalar("fovz",fov_z);
     }
     pub fn tr(&mut self, tr_us:usize) {
