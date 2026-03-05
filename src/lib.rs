@@ -2,6 +2,7 @@ use std::fmt::Display;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use chrono::Local;
 use indexmap::IndexMap;
 use toml::Value;
 
@@ -64,6 +65,13 @@ impl Headfile {
         let mut f = File::create(filename.as_ref().with_extension("headfile"))?;
         f.write_all(hfs.as_bytes())
     }
+
+    pub fn write_timestamp(&mut self) {
+        let now = Local::now();
+        let datetime_string = now.format("%Y-%m-%d_%H-%M-%S").to_string();
+        self.insert_scalar("hf_timestamp",datetime_string,false);
+    }
+
     pub fn dim_x(&mut self, dim_x:usize) {
         self.insert_scalar("dim_X",dim_x, false);
     }
