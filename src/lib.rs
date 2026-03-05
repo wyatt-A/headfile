@@ -102,7 +102,7 @@ impl Headfile {
     pub fn insert_scalar(&mut self, key:&str, item: impl Display) {
         self.inner.insert(key.to_string(), Entry::Scalar(item.to_string()));
     }
-    fn insert_list(&mut self, m:usize,n:usize, key:&str, items: &[impl Display]) {
+    pub fn insert_list(&mut self, m:usize,n:usize, key:&str, items: &[impl Display]) {
         let items = items.iter().map(|item| item.to_string()).collect::<Vec<String>>();
         self.inner.insert(key.to_string(), Entry::List{m,n,items});
     }
