@@ -89,9 +89,7 @@ impl Headfile {
         self.insert_scalar("S_PSDname",pulse_seq_name.as_ref());
     }
     pub fn bval_dir(&mut self, direction:&[f64]) {
-        let m = direction.len();
-        let n = 1;
-        self.insert_list(m,n,"bval_dir",direction);
+        self.insert_list_1d("bval_dir",direction);
     }
     pub fn b_value(&mut self, bval:f64) {
         self.insert_scalar("bvalue",bval);
@@ -102,7 +100,12 @@ impl Headfile {
     pub fn insert_scalar(&mut self, key:&str, item: impl Display) {
         self.inner.insert(key.to_string(), Entry::Scalar(item.to_string()));
     }
-    pub fn insert_list(&mut self, m:usize,n:usize, key:&str, items: &[impl Display]) {
+    pub fn insert_list_1d(&mut self, key:&str, items: &[impl Display]) {
+        let items = items.iter().map(|item| item.to_string()).collect::<Vec<String>>();
+        self.inner.insert(key.to_string(), Entry::List{m:items.len(),n:1,items});
+    }
+
+    pub fn insert_list_2d(&mut self, key:&str, m:usize,n:usize, items: &[impl Display]) {
         let items = items.iter().map(|item| item.to_string()).collect::<Vec<String>>();
         self.inner.insert(key.to_string(), Entry::List{m,n,items});
     }
