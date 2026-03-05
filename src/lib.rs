@@ -1,5 +1,6 @@
 use std::fmt::Display;
 use indexmap::IndexMap;
+use toml::Value;
 
 #[test]
 fn test() {
@@ -56,57 +57,113 @@ impl Headfile {
         Headfile{inner:IndexMap::new()}
     }
     pub fn dim_x(&mut self, dim_x:usize) {
-        self.insert_scalar("dim_X",dim_x);
+        self.insert_scalar("dim_X",dim_x, false);
     }
     pub fn dim_y(&mut self, dim_y:usize) {
-        self.insert_scalar("dim_Y",dim_y);
+        self.insert_scalar("dim_Y",dim_y, false);
     }
     pub fn dim_z(&mut self, dim_z:usize) {
-        self.insert_scalar("dim_Z",dim_z);
+        self.insert_scalar("dim_Z",dim_z, false);
     }
     pub fn fov_x(&mut self, fov_x:f64) {
-        self.insert_scalar("fovx",fov_x);
+        self.insert_scalar("fovx",fov_x, false);
     }
     pub fn fov_y(&mut self, fov_y:f64) {
-        self.insert_scalar("fovy",fov_y);
+        self.insert_scalar("fovy",fov_y, false);
     }
     pub fn fov_z(&mut self, fov_z:f64) {
-        self.insert_scalar("fovz",fov_z);
+        self.insert_scalar("fovz",fov_z, false);
     }
     pub fn tr(&mut self, tr_us:usize) {
-        self.insert_scalar("tr",tr_us);
+        self.insert_scalar("tr",tr_us, false);
     }
     pub fn te(&mut self, te_ms:f64) {
-        self.insert_scalar("te",te_ms);
+        self.insert_scalar("te",te_ms, false);
     }
     pub fn bw(&mut self, half_width:f64) {
-        self.insert_scalar("bw",half_width);
+        self.insert_scalar("bw",half_width, false);
     }
     pub fn ne(&mut self, number_echoes:usize) {
-        self.insert_scalar("ne",number_echoes);
+        self.insert_scalar("ne",number_echoes, false);
     }
     pub fn psd_name(&mut self, pulse_seq_name:impl AsRef<str>) {
-        self.insert_scalar("S_PSDname",pulse_seq_name.as_ref());
+        self.insert_scalar("S_PSDname",pulse_seq_name.as_ref(), false);
     }
     pub fn bval_dir(&mut self, direction:&[f64]) {
-        self.insert_list_1d("bval_dir",direction);
+        self.insert_list_1d("bval_dir",direction, false);
     }
     pub fn b_value(&mut self, bval:f64) {
-        self.insert_scalar("bvalue",bval);
+        self.insert_scalar("bvalue",bval, false);
     }
     pub fn n_volumes(&mut self,volumes:usize) {
-        self.insert_scalar("volumes",volumes);
+        self.insert_scalar("volumes",volumes, false);
     }
-    pub fn insert_scalar(&mut self, key:&str, item: impl Display) {
+    pub fn insert_scalar(&mut self, key:&str, item: impl Display, safe:bool) {
+        if safe && self.inner.contains_key(key) {
+            return
+        }
         self.inner.insert(key.to_string(), Entry::Scalar(item.to_string()));
     }
-    pub fn insert_list_1d(&mut self, key:&str, items: &[impl Display]) {
+
+    pub fn insert_list_1d(&mut self, key:&str, items: &[impl Display], safe:bool) {
+        if safe && self.inner.contains_key(key) {
+            return
+        }
         let items = items.iter().map(|item| item.to_string()).collect::<Vec<String>>();
         self.inner.insert(key.to_string(), Entry::List{m:items.len(),n:1,items});
     }
 
-    pub fn insert_list_2d(&mut self, key:&str, m:usize,n:usize, items: &[impl Display]) {
+    pub fn insert_list_2d(&mut self, key:&str, m:usize,n:usize, items: &[impl Display], safe:bool) {
+        if safe && self.inner.contains_key(key) {
+            return
+        }
         let items = items.iter().map(|item| item.to_string()).collect::<Vec<String>>();
         self.inner.insert(key.to_string(), Entry::List{m,n,items});
     }
+
+    pub fn insert_toml_table(&mut self, table:&toml::Table, safe_mode:bool) {
+        for (key,val) in table {
+            match val {
+                Value::String(s) => self.insert_scalar(key, s, safe_mode),
+                Value::Integer(i) => self.insert_scalar(key, i, safe_mode),
+                Value::Float(f) => self.insert_scalar(key, f, safe_mode),
+                Value::Boolean(b) => self.insert_scalar(key, b, safe_mode),
+                Value::Datetime(d) => self.insert_scalar(key, d, safe_mode),
+                Value::Array(a) => self.insert_toml_array(key, a, safe_mode),
+                Value::Table(t) => self.insert_toml_table(t, safe_mode),
+            }
+        }
+    }
+
+    fn insert_toml_array(&mut self, key:&str, array:&Vec<Value>, safe_mode:bool) {
+        match &array[0] {
+            Value::String(_) => {
+                let a:Vec<_> = array.iter().map(|val| val.as_str().expect("all values in array must be a string")).collect();
+                self.insert_list_1d(key,&a,safe_mode);
+            }
+            Value::Integer(_) => {
+                let a:Vec<_> = array.iter().map(|val| val.as_integer().expect("all values in array must be an integer")).collect();
+                self.insert_list_1d(key,&a,safe_mode);
+            }
+            Value::Float(_) => {
+                let a:Vec<_> = array.iter().map(|val| val.as_float().expect("all values in array must be a float")).collect();
+                self.insert_list_1d(key,&a,safe_mode);
+            }
+            Value::Boolean(_) => {
+                let a:Vec<_> = array.iter().map(|val| val.as_bool().expect("all values in array must be a boolean")).collect();
+                self.insert_list_1d(key,&a,safe_mode);
+            }
+            Value::Datetime(_) => {
+                let a:Vec<_> = array.iter().map(|val| val.as_datetime().expect("all values in array must be a datetime")).collect();
+                self.insert_list_1d(key,&a,safe_mode);
+            }
+            Value::Array(_) => {
+                println!("cannot insert a non-scalar value into an array")
+            }
+            Value::Table(_) => {
+                println!("cannot insert a non-scalar value into an array")
+            }
+        }
+    }
+
 }

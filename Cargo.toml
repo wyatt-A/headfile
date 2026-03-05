@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 indexmap = { version = "2.13.0", features = ["serde"] }
+toml = "1.0.4"
