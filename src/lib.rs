@@ -1,4 +1,7 @@
 use std::fmt::Display;
+use std::fs::File;
+use std::io::Write;
+use std::path::Path;
 use indexmap::IndexMap;
 use toml::Value;
 
@@ -55,6 +58,11 @@ impl Display for Headfile {
 impl Headfile {
     pub fn new() -> Headfile {
         Headfile{inner:IndexMap::new()}
+    }
+    pub fn to_file(&self,filename:impl AsRef<Path>) -> std::io::Result<()> {
+        let hfs = self.to_string();
+        let mut f = File::create(filename.as_ref().with_extension("headfile"))?;
+        f.write_all(hfs.as_bytes())
     }
     pub fn dim_x(&mut self, dim_x:usize) {
         self.insert_scalar("dim_X",dim_x, false);
