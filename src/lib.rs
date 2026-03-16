@@ -174,7 +174,15 @@ impl Headfile {
                 self.insert_list_1d(key,&a,safe_mode);
             }
             Value::Array(_) => {
-                println!("cannot insert a non-scalar value into an array")
+                let mut m = 0;
+                let n = array.len();
+                let entries = array.iter().map(|val| {
+                    let a = val.as_array().expect("expected an array of values");
+                    m = a.len();
+                    a.iter().map(|item| item.to_string()).collect::<Vec<_>>()
+                }).flatten().collect::<Vec<String>>();
+                self.insert_list_2d(key,m,n,&entries,safe_mode);
+                //println!("cannot insert a non-scalar value into an array")
             }
             Value::Table(_) => {
                 println!("cannot insert a non-scalar value into an array")
@@ -182,4 +190,8 @@ impl Headfile {
         }
     }
 
+}
+
+pub trait Flatten {
+    fn flatten(&self) -> (usize,usize,Vec<impl Display>);
 }
