@@ -1,3 +1,6 @@
+pub mod archive_tag;
+pub mod headfile_common;
+
 use std::fmt::Display;
 use std::fs::File;
 use std::io::Write;
@@ -5,6 +8,7 @@ use std::path::Path;
 use chrono::Local;
 use indexmap::IndexMap;
 use toml::Value;
+use crate::headfile_common::{AcqHeadfileParams, ArchiveParams, DWHeadfileParams, ReconHeadfileParams};
 
 #[test]
 fn test() {
@@ -12,13 +16,17 @@ fn test() {
     h.te(2.);
     h.dim_z(100);
     h.bval_dir(&[0.3,1.,0.5]);
-
     println!("{}", h);
 }
 
-
+#[derive(Clone,Debug)]
 pub struct Headfile {
-    inner:IndexMap<String,Entry>
+    /// basic image acq parameters
+    acq_params: Option<AcqHeadfileParams>,
+    diffusion_params: Option<DWHeadfileParams>,
+    recon_params: Option<ReconHeadfileParams>,
+    archive_params: Option<ArchiveParams>,
+    inner: IndexMap<String,Entry>
 }
 
 #[derive(Debug,Clone)]
@@ -48,8 +56,9 @@ impl Display for Entry {
 impl Display for Headfile {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use std::fmt::Write;
+        let h = self.clone().integrate_params();
         let mut s = String::new();
-        for (key,val) in &self.inner {
+        for (key,val) in &h.inner {
             writeln!(&mut s,"{key}={val}")?;
         }
         write!(f, "{}", s)
@@ -58,8 +67,55 @@ impl Display for Headfile {
 
 impl Headfile {
     pub fn new() -> Headfile {
-        Headfile{inner:IndexMap::new()}
+        Headfile{
+            acq_params: None,
+            diffusion_params: None,
+            recon_params: None,
+            archive_params: None,
+            inner:IndexMap::new()
+        }
     }
+
+
+    /// integrates structured parameters into the body of the headfile (index map)
+    fn integrate_params(mut self) -> Self {
+
+        let mut h = self.inner.clone();
+
+        if let Some(params) = &self.acq_params {
+            let ah = params.to_hash();
+            let mut new_entries = ah.into_iter().map(|(key,val)| (key, Entry::Scalar(val)))
+                .collect::<IndexMap<String,Entry>>();
+            h.append(&mut new_entries);
+        }
+
+        if let Some(params) = &self.diffusion_params {
+            let ah = params.to_hash();
+            let mut new_entries = ah.into_iter().map(|(key,val)| (key, Entry::Scalar(val)))
+                .collect::<IndexMap<String,Entry>>();
+            h.append(&mut new_entries);
+        }
+
+        if let Some(params) = &self.recon_params {
+            let ah = params.to_hash();
+            let mut new_entries = ah.into_iter().map(|(key,val)| (key, Entry::Scalar(val)))
+                .collect::<IndexMap<String,Entry>>();
+            h.append(&mut new_entries);
+        }
+
+        if let Some(params) = &self.archive_params {
+            let ah = params.to_hash();
+            let mut new_entries = ah.into_iter().map(|(key,val)| (key, Entry::Scalar(val)))
+                .collect::<IndexMap<String,Entry>>();
+            h.append(&mut new_entries);
+        }
+
+        self.inner = h;
+        self
+
+    }
+
+
     pub fn to_file(&self,filename:impl AsRef<Path>) -> std::io::Result<()> {
         let hfs = self.to_string();
         let mut f = File::create(filename.as_ref().with_extension("headfile"))?;

@@ -1,0 +1,301 @@
+use std::collections::{HashMap, HashSet};
+use std::fs::File;
+use std::io::Read;
+use std::path::{Path, PathBuf};
+use indexmap::IndexMap;
+use serde::{Serialize,Deserialize};
+use regex::Regex;
+
+/// metadata needed for proper civm archival
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct ArchiveParams {
+    pub coil: String,
+    pub nucleus: String,
+    pub species: String,
+    pub state: String,
+    pub orient: String,
+    pub type_: String,
+    pub focus: String,
+    pub rplane: String,
+    pub xmit: String,
+    pub optional: String,
+    pub status: String,
+}
+
+impl Default for ArchiveParams {
+    fn default() -> Self {
+        Self {
+            coil: String::from("9T_So13"),
+            nucleus: String::from("H"),
+            species: String::from("mouse"),
+            state: String::from("ex vivo"),
+            orient: String::from("NA"),
+            type_: String::from("brain"),
+            focus: String::from("whole"),
+            rplane: String::from("cor"),
+            xmit: String::from("0"),
+            optional: String::from(""),
+            status: String::from("ok"),
+        }
+    }
+}
+
+impl ArchiveParams {
+
+    pub fn to_hash(&self) -> IndexMap<String, String> {
+        let mut h = IndexMap::new();
+        h.insert(String::from("U_coil"), self.coil.clone());
+        h.insert(String::from("U_nucleus"), self.nucleus.clone());
+        h.insert(String::from("U_species"), self.species.clone());
+        h.insert(String::from("U_state"), self.state.clone());
+        h.insert(String::from("U_orient"), self.orient.clone());
+        h.insert(String::from("U_type"), self.type_.clone());
+        h.insert(String::from("U_focus"), self.focus.clone());
+        h.insert(String::from("U_rplane"), self.rplane.clone());
+        h.insert(String::from("U_xmit"), self.xmit.clone());
+        h.insert(String::from("U_status"), self.status.clone());
+        h
+    }
+
+    // need to run a check on this information to ensure it is correct
+    pub fn is_valid(&self, project_code: &str, civm_user: &str) -> bool {
+        // will will assume the fields are valid until proven otherwise
+        let mut is_valid = true;
+
+        //$WKS_SETTINGS/recon_menu.txt contains the fields and valid values. We read them to a string here
+        let workstation_settings = std::env::var("WKS_SETTINGS").expect("WKS_SETTINGS not set!");
+        let filepath = Path::new(&workstation_settings).join("recon_menu.txt");
+        let mut f = File::open(&filepath).expect(&format!("cannot open file! {:?}", filepath));
+        let mut recon_menu_txt = String::new();
+        f.read_to_string(&mut recon_menu_txt)
+            .expect("trouble reading file");
+
+        // define the format of the menu file with regex. Each line is one of these 3 categories
+        let all_menu_types_pattern = Regex::new(r"ALLMENUTYPES;(\w+)").expect("invalid regex!");
+        let menu_field_pattern = Regex::new(r"^(.*?);").expect("invalid regex!");
+        let menu_type_pattern = Regex::new(r"MENUTYPE;(\w+)").expect("invalid regex!");
+
+        // internal data structure for the file
+        let mut recon_menu = HashMap::<String, HashSet<String>>::new();
+
+        // we need to store the last menu type because we will parse the file in a single pass
+        let mut last_menu_type = String::new();
+
+        // parse the recon menu, ignoring commented lines and the "all_menu_types" pattern
+        recon_menu_txt.lines().for_each(|line| {
+            if !line.starts_with("#") && !all_menu_types_pattern.is_match(line) {
+                let c = menu_type_pattern.captures(line);
+                match c {
+                    Some(capture) => {
+                        let m = capture.get(1).unwrap();
+                        last_menu_type = m.as_str().to_string();
+                        recon_menu.insert(last_menu_type.clone(), HashSet::<String>::new());
+                    }
+                    None => {
+                        let c = menu_field_pattern
+                            .captures(line)
+                            .expect(&format!("unknown format!{}", line));
+                        let m = c.get(1).expect("capture group not found");
+                        recon_menu
+                            .get_mut(&last_menu_type)
+                            .unwrap()
+                            .insert(m.as_str().to_string());
+                    }
+                }
+            }
+        });
+
+        // here we check that this struct contains valid field entries with the exception
+        // of transmit, which needs to be a "number" (assuming integer for now)
+        let mut user_archive_info = self.to_hash();
+        user_archive_info.insert(String::from("U_code"), project_code.to_string());
+        user_archive_info.insert(String::from("U_civmid"), civm_user.to_string());
+        user_archive_info.iter().for_each(|(key, val)| {
+            let t = key.replace("U_", "");
+            match recon_menu.get(&t) {
+                Some(set) => {
+                    match &set.contains(val) {
+                        false => {
+                            match t.as_str() {
+                                "xmit" => {
+                                    // check that transmit is a "number" (what is a number?)
+                                    val.chars().for_each(|char| {
+                                        if !char.is_numeric() {
+                                            println!(
+                                                "xmit contains non-numeric characters: {}",
+                                                val
+                                            );
+                                            is_valid = false
+                                        }
+                                    });
+                                }
+                                _ => {
+                                    println!("{} is not a valid entry for {}.", val, t);
+                                    is_valid = false;
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                None => {}
+            }
+        });
+
+        // here we check that our struct contains all fields required by the recon menu, with the
+        // exception of runno. Is runno formatting actually enforced??
+        recon_menu.iter().for_each(|(key, val)| {
+            if !val.is_empty() {
+                match key.as_str() {
+                    "runno" => {}
+                    _ => {
+                        if !user_archive_info.contains_key(&format!("U_{}", key)) {
+                            println!("{} is not present in meta-data struct", key);
+                            is_valid = false;
+                        }
+                    }
+                }
+            }
+        });
+        is_valid
+    }
+}
+
+
+/// meta data requirements for diffusion-weighted images
+#[derive(Debug,Clone)]
+pub struct DWHeadfileParams {
+    pub bvalue: f32,
+    pub bval_dir: [f32;3],
+}
+
+impl DWHeadfileParams {
+    pub fn to_hash(&self) -> IndexMap<String, String> {
+        let mut h = IndexMap::<String, String>::new();
+        let bval_dir = format!(
+            "3:1,{} {} {}",
+            self.bval_dir[0], self.bval_dir[1], self.bval_dir[2]
+        );
+        h.insert(String::from("bval_dir"), bval_dir);
+        h.insert(String::from("bvalue"), self.bvalue.to_string());
+        h
+    }
+}
+
+/// minimum expected meta data for basic civm MR imaging
+#[derive(Debug,Clone)]
+pub struct AcqHeadfileParams {
+    pub dim_x: i32,
+    pub dim_y: i32,
+    pub dim_z: i32,
+    pub fovx_mm: f32,
+    pub fovy_mm: f32,
+    pub fovz_mm: f32,
+    pub te_ms: f32,
+    pub tr_us: f32,
+    pub alpha: f32,
+    pub bw: f32,
+    pub n_echos: i32,
+    pub s_psdname: String,
+}
+
+impl AcqHeadfileParams {
+    pub fn to_hash(&self) -> IndexMap<String, String> {
+        let mut h = IndexMap::<String, String>::new();
+        h.insert(String::from("dim_X"), self.dim_x.to_string());
+        h.insert(String::from("dim_Y"), self.dim_y.to_string());
+        h.insert(String::from("dim_Z"), self.dim_z.to_string());
+        h.insert(String::from("fovx"), self.fovx_mm.to_string());
+        h.insert(String::from("fovy"), self.fovy_mm.to_string());
+        h.insert(String::from("fovz"), self.fovz_mm.to_string());
+        h.insert(String::from("tr"), self.tr_us.to_string());
+        h.insert(String::from("te"), self.te_ms.to_string());
+        h.insert(String::from("bw"), self.bw.to_string());
+        h.insert(String::from("ne"), self.n_echos.to_string());
+        h.insert(String::from("S_PSDname"), self.s_psdname.to_string());
+        h
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct ReconHeadfileParams {
+    pub spec_id: String,
+    pub civmid: String,
+    pub project_code: String,
+    pub n_objects: usize,
+    pub scanner_vendor: String,
+    pub run_number: String,
+    pub m_number: String,
+    pub scale_factor_histo_percent: f32,
+    pub scale_factor_to_civmraw: f32,
+    pub scale_factor_prescale_target: f32,
+    pub scale_factor_prescale_maximum: f32,
+    pub image_code: String,
+    pub image_tag: String,
+    pub engine_work_dir: PathBuf,
+    pub more_archive_info: ArchiveParams,
+}
+impl ReconHeadfileParams {
+    pub fn default() -> Self {
+        Self {
+            spec_id: String::from("mr_tacos"),
+            civmid: String::from("wa41"),
+            project_code: String::from("00.project.00"),
+            n_objects: 1,
+            scanner_vendor: "mrsolutions".to_string(),
+            run_number: "N60tacos".to_string(),
+            m_number: "m00".to_string(),
+            image_code: "t9".to_string(),
+            image_tag: "imx".to_string(),
+            engine_work_dir: PathBuf::from(
+                std::env::var("BIGGUS_DISKUS").expect("biggus diskus not set!"),
+            ),
+            more_archive_info: ArchiveParams::default(),
+            scale_factor_histo_percent: 0.9995,
+            scale_factor_to_civmraw: 1.0,
+            scale_factor_prescale_target: 1.0,
+            scale_factor_prescale_maximum: u16::MAX as f32,
+        }
+    }
+
+    pub fn to_hash(&self) -> IndexMap<String, String> {
+        let mut h = IndexMap::<String, String>::new();
+        h.insert(String::from("U_specid"), self.spec_id.clone());
+        h.insert(String::from("U_civmid"), self.civmid.clone());
+        h.insert(String::from("U_code"), self.project_code.clone());
+        h.insert(String::from("volumes"), self.n_objects.to_string());
+        h.insert(String::from("scanner_vendor"), self.scanner_vendor.clone());
+        h.insert(
+            String::from("U_runno"),
+            format!("{}_{}", self.run_number.clone(), self.m_number.clone()),
+        );
+        h.insert(
+            String::from("scale_factor_histo_percent"),
+            self.scale_factor_histo_percent.to_string(),
+        );
+        h.insert(
+            String::from("scale_factor_to_civmraw"),
+            self.scale_factor_to_civmraw.to_string(),
+        );
+        h.insert(
+            String::from("scale_factor_prescale_target"),
+            self.scale_factor_prescale_target.to_string(),
+        );
+        h.insert(
+            String::from("scale_factor_prescale_maximum"),
+            self.scale_factor_prescale_maximum.to_string(),
+        );
+        h.insert(String::from("civm_image_code"), self.image_code.clone());
+        h.insert(
+            String::from("civm_image_source_tag"),
+            self.image_tag.clone(),
+        );
+        h.insert(
+            String::from("engine_work_directory"),
+            self.engine_work_dir.to_str().unwrap_or("").to_string(),
+        );
+        h.insert(String::from("F_imgformat"), String::from("raw"));
+        h.extend(self.more_archive_info.to_hash());
+        h
+    }
+}

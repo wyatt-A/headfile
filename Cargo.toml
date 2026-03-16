@@ -7,3 +7,5 @@ edition = "2024"
 chrono = "0.4.44"
 indexmap = { version = "2.13.0", features = ["serde"] }
 toml = "1.0.4"
+serde = { version = "1.0.228", features = ["derive"] }
+regex = "1.12.3"
