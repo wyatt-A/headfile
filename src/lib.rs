@@ -5,6 +5,7 @@ use std::fmt::Display;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use std::sync::Arc;
 use chrono::Local;
 use indexmap::IndexMap;
 use toml::Value;
@@ -76,6 +77,25 @@ impl Headfile {
         }
     }
 
+    pub fn with_acq_params(mut self, acq_params: AcqHeadfileParams) -> Headfile {
+        self.acq_params = Some(acq_params);
+        self
+    }
+
+    pub fn with_diffusion_params(mut self, dw_params: DWHeadfileParams) -> Headfile {
+        self.diffusion_params = Some(dw_params);
+        self
+    }
+
+    pub fn with_recon_params(mut self, reco_params: ReconHeadfileParams) -> Headfile {
+        self.recon_params = Some(reco_params);
+        self
+    }
+
+    pub fn with_archive_params(mut self, archive_params: ArchiveParams) -> Headfile {
+        self.archive_params = Some(archive_params);
+        self
+    }
 
     /// integrates structured parameters into the body of the headfile (index map)
     fn integrate_params(mut self) -> Self {
