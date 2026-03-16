@@ -1,5 +1,5 @@
 pub mod archive_tag;
-pub mod headfile_common;
+pub mod common;
 
 use std::fmt::Display;
 use std::fs::File;
@@ -8,7 +8,7 @@ use std::path::Path;
 use chrono::Local;
 use indexmap::IndexMap;
 use toml::Value;
-use crate::headfile_common::{AcqHeadfileParams, ArchiveParams, DWHeadfileParams, ReconHeadfileParams};
+use crate::common::{AcqHeadfileParams, ArchiveParams, DWHeadfileParams, ReconHeadfileParams};
 
 #[test]
 fn test() {

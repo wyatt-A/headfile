@@ -185,9 +185,9 @@ impl DWHeadfileParams {
 /// minimum expected meta data for basic civm MR imaging
 #[derive(Debug,Clone)]
 pub struct AcqHeadfileParams {
-    pub dim_x: i32,
-    pub dim_y: i32,
-    pub dim_z: i32,
+    pub dim_x: usize,
+    pub dim_y: usize,
+    pub dim_z: usize,
     pub fovx_mm: f32,
     pub fovy_mm: f32,
     pub fovz_mm: f32,
@@ -195,7 +195,7 @@ pub struct AcqHeadfileParams {
     pub tr_us: f32,
     pub alpha: f32,
     pub bw: f32,
-    pub n_echos: i32,
+    pub n_echos: usize,
     pub s_psdname: String,
 }
 
