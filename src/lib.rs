@@ -94,11 +94,29 @@ impl Headfile {
             entries:IndexMap::new()
         }
     }
-    
+
     pub fn entries(self) -> IndexMap<String,String> {
         self.integrate_params().entries.into_iter().map(|(k,v)|{
             (k,v.to_string())
         }).collect()
+    }
+
+
+    pub fn from_hash(entries:&IndexMap<String,String>) -> Self {
+
+        let entries:IndexMap<String,Entry> = entries.iter().map(|(key,val)|{
+            let entry = Self::parse_entry(val);
+            (key.to_string(),entry)
+        }).collect();
+
+        Self {
+            acq_params: None,
+            diffusion_params: None,
+            recon_params: None,
+            archive_params: None,
+            entries,
+        }
+
     }
 
     pub fn from_file(headfile:impl AsRef<Path>) -> Result<Self, std::io::Error> {
