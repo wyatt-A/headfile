@@ -3,7 +3,7 @@ pub mod common;
 
 use std::fmt::Display;
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::Arc;
 use chrono::Local;
@@ -11,14 +11,32 @@ use indexmap::IndexMap;
 use toml::Value;
 use crate::common::{AcqHeadfileParams, ArchiveParams, DWHeadfileParams, ReconHeadfileParams};
 
-#[test]
-fn test() {
-    let mut h = Headfile::new();
-    h.te(2.);
-    h.dim_z(100);
-    h.bval_dir(&[0.3,1.,0.5]);
-    println!("{}", h);
+#[cfg(test)]
+mod tests {
+    use std::fs::File;
+    use std::io::Read;
+    use crate::Headfile;
+
+    #[test]
+    fn serialize_deserialize() {
+
+        // parse headfile, then write it as a new 'test.headfile'
+        // reopen both and compare strings for equality
+
+        let h = Headfile::from_file("pfg_cs.headfile").unwrap();
+        h.to_file("test.headfile").unwrap();
+        let mut f = File::open("pfg_cs.headfile").unwrap();
+        let mut s1 = String::new();
+        f.read_to_string(&mut s1).unwrap();
+        let mut f = File::open("test.headfile").unwrap();
+        let mut s2 = String::new();
+        f.read_to_string(&mut s2).unwrap();
+        assert_eq!(s1, s2);
+    }
+
 }
+
+
 
 #[derive(Clone,Debug)]
 pub struct Headfile {
@@ -27,7 +45,7 @@ pub struct Headfile {
     diffusion_params: Option<DWHeadfileParams>,
     recon_params: Option<ReconHeadfileParams>,
     archive_params: Option<ArchiveParams>,
-    inner: IndexMap<String,Entry>
+    entries: IndexMap<String,Entry>
 }
 
 #[derive(Debug,Clone)]
@@ -59,7 +77,7 @@ impl Display for Headfile {
         use std::fmt::Write;
         let h = self.clone().integrate_params();
         let mut s = String::new();
-        for (key,val) in &h.inner {
+        for (key,val) in &h.entries {
             writeln!(&mut s,"{key}={val}")?;
         }
         write!(f, "{}", s)
@@ -73,9 +91,72 @@ impl Headfile {
             diffusion_params: None,
             recon_params: None,
             archive_params: None,
-            inner:IndexMap::new()
+            entries:IndexMap::new()
         }
     }
+
+    pub fn from_file(headfile:impl AsRef<Path>) -> Result<Self, std::io::Error> {
+
+        let mut f = File::open(headfile)?;
+        let mut s = String::new();
+        f.read_to_string(&mut s)?;
+
+        let entries:IndexMap<String,Entry> = s.lines().map(|line|{
+            let (key,val) = line.split_once('=').expect(&format!("did not file = char in line {}",line));
+            let key = key.trim();
+            let val = val.trim();
+            let entry = Self::parse_entry(val);
+            (key.to_string(),entry)
+        }).collect();
+
+        Ok(
+            Self {
+                acq_params: None,
+                diffusion_params: None,
+                recon_params: None,
+                archive_params: None,
+                entries,
+            }
+        )
+
+    }
+
+    fn parse_entry(value: &str) -> Entry {
+        let value = value.trim();
+
+        if Self::looks_like_list(value) {
+            let (dims, rest) = value.split_once(',').unwrap();
+            let (m_str, n_str) = dims.split_once(':').unwrap();
+
+            let m = m_str.trim().parse::<usize>().unwrap();
+            let n = n_str.trim().parse::<usize>().unwrap();
+
+            let items = rest
+                .split_whitespace()
+                .map(|s| s.to_string())
+                .collect();
+
+            Entry::List { m, n, items }
+        } else {
+            Entry::Scalar(value.to_string())
+        }
+    }
+
+    fn looks_like_list(value: &str) -> bool {
+        let value = value.trim();
+
+        let Some((dims, _rest)) = value.split_once(',') else {
+            return false;
+        };
+
+        let Some((m, n)) = dims.split_once(':') else {
+            return false;
+        };
+
+        m.trim().parse::<usize>().is_ok() && n.trim().parse::<usize>().is_ok()
+    }
+
+
 
     pub fn with_acq_params(mut self, acq_params: AcqHeadfileParams) -> Headfile {
         self.acq_params = Some(acq_params);
@@ -100,7 +181,7 @@ impl Headfile {
     /// integrates structured parameters into the body of the headfile (index map)
     fn integrate_params(mut self) -> Self {
 
-        let mut h = self.inner.clone();
+        let mut h = self.entries.clone();
 
         if let Some(params) = &self.acq_params {
             let ah = params.to_hash();
@@ -130,7 +211,7 @@ impl Headfile {
             h.append(&mut new_entries);
         }
 
-        self.inner = h;
+        self.entries = h;
         self
 
     }
@@ -191,26 +272,26 @@ impl Headfile {
         self.insert_scalar("volumes",volumes, false);
     }
     pub fn insert_scalar(&mut self, key:&str, item: impl Display, safe:bool) {
-        if safe && self.inner.contains_key(key) {
+        if safe && self.entries.contains_key(key) {
             return
         }
-        self.inner.insert(key.to_string(), Entry::Scalar(item.to_string()));
+        self.entries.insert(key.to_string(), Entry::Scalar(item.to_string()));
     }
 
     pub fn insert_list_1d(&mut self, key:&str, items: &[impl Display], safe:bool) {
-        if safe && self.inner.contains_key(key) {
+        if safe && self.entries.contains_key(key) {
             return
         }
         let items = items.iter().map(|item| item.to_string()).collect::<Vec<String>>();
-        self.inner.insert(key.to_string(), Entry::List{m:items.len(),n:1,items});
+        self.entries.insert(key.to_string(), Entry::List{m:items.len(),n:1,items});
     }
 
     pub fn insert_list_2d(&mut self, key:&str, m:usize,n:usize, items: &[impl Display], safe:bool) {
-        if safe && self.inner.contains_key(key) {
+        if safe && self.entries.contains_key(key) {
             return
         }
         let items = items.iter().map(|item| item.to_string()).collect::<Vec<String>>();
-        self.inner.insert(key.to_string(), Entry::List{m,n,items});
+        self.entries.insert(key.to_string(), Entry::List{m,n,items});
     }
 
     pub fn insert_toml_table(&mut self, table:&toml::Table, safe_mode:bool) {
