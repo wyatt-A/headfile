@@ -94,10 +94,11 @@ impl Headfile {
             entries:IndexMap::new()
         }
     }
-
-
-    pub fn entries(self) -> IndexMap<String,Entry> {
-        self.integrate_params().entries
+    
+    pub fn entries(self) -> IndexMap<String,String> {
+        self.integrate_params().entries.into_iter().map(|(k,v)|{
+            (k,v.to_string())
+        }).collect()
     }
 
     pub fn from_file(headfile:impl AsRef<Path>) -> Result<Self, std::io::Error> {
