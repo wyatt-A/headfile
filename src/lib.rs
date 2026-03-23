@@ -95,6 +95,11 @@ impl Headfile {
         }
     }
 
+
+    pub fn entries(self) -> IndexMap<String,Entry> {
+        self.integrate_params().entries
+    }
+
     pub fn from_file(headfile:impl AsRef<Path>) -> Result<Self, std::io::Error> {
 
         let mut f = File::open(headfile)?;
