@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use indexmap::IndexMap;
 use serde::{Serialize,Deserialize};
@@ -41,6 +41,19 @@ impl Default for ArchiveParams {
 }
 
 impl ArchiveParams {
+
+    pub fn to_file(&self, filename:impl AsRef<Path>) {
+        let mut file = File::create(filename).unwrap();
+        let s = toml::to_string_pretty(&self).unwrap();
+        file.write(s.as_bytes()).unwrap();
+    }
+
+    pub fn from_file(&self, filename:impl AsRef<Path>) -> Self {
+        let mut file = File::open(filename).unwrap();
+        let mut s = String::new();
+        file.read_to_string(&mut s).unwrap();
+        toml::from_str(&s).unwrap()
+    }
 
     pub fn to_hash(&self) -> IndexMap<String, String> {
         let mut h = IndexMap::new();
