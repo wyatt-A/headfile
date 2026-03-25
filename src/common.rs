@@ -42,14 +42,14 @@ impl Default for ArchiveParams {
 
 impl ArchiveParams {
 
-    pub fn to_file(&self, filename:impl AsRef<Path>) -> Result<(), std::io::Error> {
+    pub fn to_file(&self,filename:impl AsRef<Path>) -> Result<(), std::io::Error> {
         let mut file = File::create(filename)?;
         let s = toml::to_string_pretty(&self).unwrap();
         file.write(s.as_bytes())?;
         Ok(())
     }
 
-    pub fn from_file(&self, filename:impl AsRef<Path>) -> Result<Self, std::io::Error> {
+    pub fn from_file(filename:impl AsRef<Path>) -> Result<Self, std::io::Error> {
         let mut file = File::open(filename)?;
         let mut s = String::new();
         file.read_to_string(&mut s)?;
