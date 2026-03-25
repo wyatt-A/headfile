@@ -42,17 +42,18 @@ impl Default for ArchiveParams {
 
 impl ArchiveParams {
 
-    pub fn to_file(&self, filename:impl AsRef<Path>) {
-        let mut file = File::create(filename).unwrap();
+    pub fn to_file(&self, filename:impl AsRef<Path>) -> Result<(), std::io::Error> {
+        let mut file = File::create(filename)?;
         let s = toml::to_string_pretty(&self).unwrap();
-        file.write(s.as_bytes()).unwrap();
+        file.write(s.as_bytes())?;
+        Ok(())
     }
 
-    pub fn from_file(&self, filename:impl AsRef<Path>) -> Self {
-        let mut file = File::open(filename).unwrap();
+    pub fn from_file(&self, filename:impl AsRef<Path>) -> Result<Self, std::io::Error> {
+        let mut file = File::open(filename)?;
         let mut s = String::new();
-        file.read_to_string(&mut s).unwrap();
-        toml::from_str(&s).unwrap()
+        file.read_to_string(&mut s)?;
+        toml::from_str(&s).map_err(|e|std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
 
     pub fn to_hash(&self) -> IndexMap<String, String> {
