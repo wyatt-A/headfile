@@ -253,6 +253,26 @@ impl Headfile {
         self.insert_scalar("hf_timestamp",datetime_string,false);
     }
 
+    pub fn get_string_scalar(&self, entry:&str) -> Option<String> {
+        self.entries.get(entry).and_then(|entry|{
+            if let Entry::Scalar(val) = entry {
+                Some(val.to_string())
+            }else {
+                None
+            }
+        })
+    }
+
+    pub fn get_numeric_scalar(&self, entry:&str) -> Option<f64> {
+        self.entries.get(entry).and_then(|entry|{
+            if let Entry::Scalar(val) = entry {
+                val.parse::<f64>().ok()
+            }else {
+                None
+            }
+        })
+    }
+
     pub fn dim_x(&mut self, dim_x:usize) {
         self.insert_scalar("dim_X",dim_x, false);
     }
