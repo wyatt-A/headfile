@@ -126,7 +126,7 @@ impl Headfile {
         f.read_to_string(&mut s)?;
 
         let entries:IndexMap<String,Entry> = s.lines().map(|line|{
-            let (key,val) = line.split_once('=').expect(&format!("did not file = char in line {}",line));
+            let (key,val) = line.split_once('=').expect(&format!("did not find = char in line {}",line));
             let key = key.trim();
             let val = val.trim();
             let entry = Self::parse_entry(val);
