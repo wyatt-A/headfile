@@ -184,22 +184,22 @@ impl Headfile {
 
     pub fn with_acq_params(mut self, acq_params: AcqHeadfileParams) -> Headfile {
         self.acq_params = Some(acq_params);
-        self
+        self.integrate_params()
     }
 
     pub fn with_diffusion_params(mut self, dw_params: DWHeadfileParams) -> Headfile {
         self.diffusion_params = Some(dw_params);
-        self
+        self.integrate_params()
     }
 
     pub fn with_recon_params(mut self, reco_params: ReconHeadfileParams) -> Headfile {
         self.recon_params = Some(reco_params);
-        self
+        self.integrate_params()
     }
 
     pub fn with_archive_params(mut self, archive_params: ArchiveParams) -> Headfile {
         self.archive_params = Some(archive_params);
-        self
+        self.integrate_params()
     }
 
     /// integrates structured parameters into the body of the headfile (index map)
