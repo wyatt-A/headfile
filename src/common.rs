@@ -50,7 +50,7 @@ impl ArchiveParams {
     }
 
     pub fn from_file(filename:impl AsRef<Path>) -> Result<Self, std::io::Error> {
-        let mut file = File::open(filename)?;
+        let mut file = File::open(filename.as_ref().with_extension("toml"))?;
         let mut s = String::new();
         file.read_to_string(&mut s)?;
         toml::from_str(&s).map_err(|e|std::io::Error::new(std::io::ErrorKind::InvalidData, e))
