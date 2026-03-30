@@ -273,6 +273,17 @@ impl Headfile {
         })
     }
 
+    pub fn get_numeric_vector(&self, entry:&str) -> Option<(usize,usize,Vec<f64>)> {
+        self.entries.get(entry).and_then(|entry|{
+            if let Entry::List {m,n,items} = entry {
+                let v:Vec<f64> = items.iter().map(|s| s.parse::<f64>().unwrap()).collect();
+                Some((*m,*n,v))
+            }else {
+                None
+            }
+        })
+    }
+
     pub fn dim_x(&mut self, dim_x:usize) {
         self.insert_scalar("dim_X",dim_x, false);
     }
