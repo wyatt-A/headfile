@@ -145,6 +145,16 @@ impl Headfile {
 
     }
 
+    pub fn project_code(&self) -> Option<String> {
+        let code = self.entries.get("U_code")?;
+        Some(code.to_string())
+    }
+
+    pub fn specimen_id(&self) -> Option<String> {
+        let spec = self.entries.get("U_specid")?;
+        Some(spec.to_string())
+    }
+
     fn parse_entry(value: &str) -> Entry {
         let value = value.trim();
 
