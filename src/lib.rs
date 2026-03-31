@@ -169,6 +169,11 @@ impl Headfile {
         }
     }
 
+    /// returns the raw format string, this is either raw or cf32
+    pub fn raw_fmt(&self) -> Option<String> {
+        Some(self.entries.get("F_imgformat")?.to_string())
+    }
+
     fn parse_entry(value: &str) -> Entry {
         let value = value.trim();
 
