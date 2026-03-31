@@ -155,6 +155,20 @@ impl Headfile {
         Some(spec.to_string())
     }
 
+    pub fn run_number(&self) -> Option<String> {
+        let runno = self.entries.get("U_runno")?;
+        Some(runno.to_string())
+    }
+
+    pub fn base_run_number(&self) -> Option<String> {
+        let full_runno = self.run_number()?;
+        if let Some(spl) = full_runno.split_once("_m") {
+            Some(spl.0.to_string())
+        }else {
+            Some(full_runno)
+        }
+    }
+
     fn parse_entry(value: &str) -> Entry {
         let value = value.trim();
 
